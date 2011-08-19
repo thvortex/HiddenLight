@@ -94,9 +94,8 @@ public class HiddenLight extends JavaPlugin {
 			}
 
 			Player player = (Player) sender;
-			
-			if(!sender.isOp()) {
-				sender.sendMessage("[HiddenLight] You are not authorized to use this command.");
+			if(!player.hasPermission("hiddenlight.*")) {
+				player.sendMessage("[HiddenLight] You are not authorized to use this command.");
 				return true;
 			}
 

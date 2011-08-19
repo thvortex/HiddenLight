@@ -5,6 +5,11 @@ version: 0.1
 description: "Place hidden light sources on a map without adding torches or glowstones."
 commands:
   hiddenlight:
+    permission: hiddenlight.*
     aliases: [hl]
     description: "Place hidden light level 1-15 by right clicking stick, or use 'off' to deactivate."
     usage: "Usage: /<command> 1-15 | off"
+permissions:
+  hiddenlight.*:
+    default: op
+    description: "Allow using /hiddenlight to place light sources"
