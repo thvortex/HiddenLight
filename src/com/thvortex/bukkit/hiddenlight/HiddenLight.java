@@ -220,6 +220,13 @@ public class HiddenLight extends JavaPlugin {
 	// additional blocks for update to force sending a 0x33 Map Chunk packet. This function
 	// marks a 3x3x3 block cuboid for updates centered around the initial click location.
 	private void forceMapChunkPacket(WorldServer world, int centerX, int centerY, int centerZ) {
+		if(centerY < 1) {
+			centerY = 1;
+		}
+		if(centerY > 126) {
+			centerY = 126;
+		}
+	
 		for(int x = centerX - 1; x <= centerX + 1; x++) {
 			for(int y = centerY - 1; y <= centerY + 1; y++) {
 				for(int z = centerZ - 1; z <= centerZ + 1; z++) {
