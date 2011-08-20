@@ -43,6 +43,7 @@ public class HiddenLight extends JavaPlugin {
 	private Queue<UpdatePos> updateQueue = new LinkedList<UpdatePos>();
 	private Map<String, Integer> activePlayers = new HashMap<String, Integer>();
 	private int blocksUpdatedCount;
+	private int lightLevelDelta;
 	
 	static {
 		// These blocks will get skipped by LivingEntity.getLastTwoTargetBlocks()
@@ -96,6 +97,7 @@ public class HiddenLight extends JavaPlugin {
 			Player player = (Player) sender;
 			if(!player.hasPermission("hiddenlight.*")) {
 				player.sendMessage("[HiddenLight] You are not authorized to use this command.");
+				// TODO: remove from activePlayers here
 				return true;
 			}
 
@@ -154,24 +156,32 @@ public class HiddenLight extends JavaPlugin {
 		if(!activePlayers.containsKey(player.getName())) {
 			return;
 		}
+		// TODO: Verify permission has not been subsequently revoked
 		int lightLevel = activePlayers.get(player.getName());
 		
-		// The second block in the list is the one actually targeted. The first is the air block
-		// next to the targeted face that will get the full light level.
 		List<Block> lineOfSight = player.getLastTwoTargetBlocks(SKIPBLOCKS, DISTANCE);
 		if(lineOfSight.size() != 2) {
 			return;
 		}
 		
+		// The second block in the list is the one actually targeted. The first is the air block
+		// next to the targeted face that will get the full light level. If the targeted block is
+		// transparent, then player was aiming at the sky or at least past the end of any currently
+		// loaded chunks.
 		Block block = lineOfSight.get(1);
 		if(SKIPBLOCKS.contains(block.getType())) {
 			return;
 		}		
 		block = lineOfSight.get(0);
 
+		int x = block.getX(), y = block.getY(), z = block.getZ();
 		WorldServer world = (WorldServer) ((CraftChunk)block.getChunk()).getHandle().world;
+
 		blocksUpdatedCount = 0;
-		enqueueUpdate(world, block.getX(), block.getY(), block.getZ(), lightLevel);
+		lightLevelDelta = lightLevel - world.a(BLOCK_LIGHT, x, y, z); // World.getSavedLightValue()
+		//log.info("delta=" + lightLevelDelta);
+		
+		enqueueUpdate(world, x, y, z, lightLevel);
 
 		while(!updateQueue.isEmpty()) {
 			UpdatePos p = updateQueue.remove();
@@ -184,9 +194,11 @@ public class HiddenLight extends JavaPlugin {
 			enqueueUpdate(world, p.x, p.y, p.z + 1, p.level - 1);
 		}
 		
+		//log.info("blocksUpdatedCount=" + blocksUpdatedCount);
+		
 		if(blocksUpdatedCount < 10) {
 			forceMapChunkPacket(world, block.getX(), block.getY(), block.getZ());
-		}
+		}		
 
 		// Cancel event to avoid potential conflict with other plugins using the same item ID
 		event.setCancelled(true);
@@ -206,12 +218,31 @@ public class HiddenLight extends JavaPlugin {
 			level -= opacity - 1;
 		}
 		
-		if(level < 0 || world.a(BLOCK_LIGHT, x, y, z) >= level) { // World.getSavedLightValue()
-			return;
-		}
+		int oldLevel = world.a(BLOCK_LIGHT, x, y, z); // World.getSavedLightValue()		
 		
+		// When removing light, updates must follow along an already existing gradient of decreasing
+		// by 1 light values. The lightLevelDelta is used to detect that gradient and it's calculated
+		// at the original click position as the difference between the newly requested light level
+		// and the original light level at the click location.
+		if(lightLevelDelta < 0) {
+			if(oldLevel != (level - lightLevelDelta)) {
+				// TODO: Add to secondary queue here?
+				return;
+			}
+			
+		// When adding light, only update (and propagate changes) to blocks with less light than we're
+		// currently adding. This propagates the light changes outwards from the initial click location.
+		} else {
+			if(oldLevel >= level) {
+				return;
+			}
+		}
+		//log.info("old="+oldLevel+" new="+level+" x="+x+" y="+y+" z="+z);
+		
+		// Note that level can be negative when removing light. This is needed to properly detect
+		// 
 		blocksUpdatedCount++;
-		world.b(BLOCK_LIGHT, x, y, z, level); // World.setLightValue()
+		world.b(BLOCK_LIGHT, x, y, z, level < 0 ? 0 : level); // World.setLightValue()
 		updateQueue.offer(new UpdatePos(x, y, z, level));
 	}
 	
