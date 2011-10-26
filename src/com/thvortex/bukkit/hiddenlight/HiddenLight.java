@@ -274,7 +274,7 @@ public class HiddenLight extends JavaPlugin {
 		// Note that level can be negative when removing light. This is needed to properly detect
 		// the decreasing light gradient that we follow.
 		blocksUpdatedCount++;
-		world.b(BLOCK_LIGHT, x, y, z, level < 0 ? 0 : level); // World.setLightValue()
+		world.a(BLOCK_LIGHT, x, y, z, level < 0 ? 0 : level); // World.setLightValue()
 		
 		if(backQueue) {
 			backUpdateQueue.offer(new UpdatePos(x, y, z, level));
